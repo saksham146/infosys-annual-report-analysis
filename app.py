@@ -104,6 +104,10 @@ if prompt:
         except Exception as exc:
             # Keep provider details and any credentials out of the chat transcript.
             st.error("The agent could not complete this request. Check the API key, report index, and network connection, then try again.")
-            st.caption(f"Diagnostic: {type(exc).__name__}")
+            diagnostic = " ".join(str(exc).split())
+            api_key = get_api_key()
+            if api_key:
+                diagnostic = diagnostic.replace(api_key, "[redacted]")
+            st.caption(f"Diagnostic: {type(exc).__name__}: {diagnostic[:280]}")
             answer_text = "I couldn't complete that analysis. Please check the agent status in the sidebar and try again."
     st.session_state.messages.append({"role": "assistant", "content": answer_text, "sources": source_pages})

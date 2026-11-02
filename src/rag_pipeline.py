@@ -16,7 +16,8 @@ for env_name in (".env", "key.env"):
 DB_PATH = PROJECT_ROOT / "Data" / "chroma_db"
 COLLECTION_NAME = "infosys_annual_report_2024"
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.8-flash")
 
 _LOCK = threading.Lock()
 _CLIENT = None
@@ -99,11 +100,28 @@ QUESTION
 {query_text.strip()}
 """
     client = genai.Client(api_key=api_key)
-    stream = client.models.generate_content_stream(model=GEMINI_MODEL, contents=prompt)
+    model_ids = list(dict.fromkeys((GEMINI_MODEL, GEMINI_FALLBACK_MODEL)))
 
     def text_chunks():
-        for chunk in stream:
-            if chunk and chunk.text:
-                yield chunk.text
+        # Capture the client for the generator lifetime; its HTTP transport must
+        # stay open until the stream has been fully consumed by Streamlit.
+        last_error = None
+        for model_id in model_ids:
+            emitted_text = False
+            try:
+                stream = client.models.generate_content_stream(model=model_id, contents=prompt)
+                for chunk in stream:
+                    if chunk and chunk.text:
+                        emitted_text = True
+                        yield chunk.text
+                if emitted_text:
+                    return
+                last_error = RuntimeError("Gemini returned an empty response.")
+            except Exception as exc:
+                if emitted_text:
+                    raise RuntimeError("Gemini interrupted the answer stream. Please retry the question.") from exc
+                last_error = exc
+        detail = f"{type(last_error).__name__}: {str(last_error)[:240]}" if last_error else "No provider response."
+        raise RuntimeError(f"Gemini failed with the configured models ({', '.join(model_ids)}). {detail}") from last_error
 
     return text_chunks(), sorted(sources)
