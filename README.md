@@ -58,3 +58,7 @@ Keep `.env`, `key.env`, `Data/annual_report.pdf`, `Data/chroma_db/`, `.venv/`, a
 - `src/Vector_store.py` — ChromaDB index build/update command
 - `src/rag_pipeline.py` — retrieval, prompt construction, and Gemini streaming
 - `main.py` — report index CLI
+
+## Project manual
+
+[Download the user and developer manual](output/pdf/Infosys_Annual_Report_Analyst_Manual.pdf) for the full setup guide, agent diagrams, and file-by-file walkthrough.
